@@ -2,7 +2,7 @@
 name = "chunk_iter"
 version = "0.1.2"
 edition = "2018"
-license = "Unlicense"
+license = "MIT OR Unlicense"
 readme = "README.md"
 description = "Chunked iterator generic over any iterator."
 repository = "https://github.com/frogtd/chunk_iter"
