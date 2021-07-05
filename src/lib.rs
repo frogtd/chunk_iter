@@ -54,6 +54,11 @@ impl<T, I: Iterator<Item = T>, const N: usize> Iterator for Chunks<T, I, N> {
         self.needs_dropping = 0;
         unsafe { Some(std::mem::transmute_copy(&self.buffer)) }
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (lower, upper) = self.iterator.size_hint();
+        (lower / N, upper.map(|x| x / N))
+    }
 }
 
 impl<T, I: Iterator<Item = T>, const N: usize> Drop for Chunks<T, I, N> {
@@ -91,5 +96,12 @@ mod tests {
 
         assert_eq!(10, test_drop.num_tracked_items());
         assert_eq!(10, test_drop.num_dropped_items());
+    }
+
+    #[test]
+    fn size_hint_test() {
+        let iter = vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter().chunks::<3>();
+
+        assert_eq!(iter.size_hint(), (2, Some(2)))
     }
 }
