@@ -1,8 +1,7 @@
-
 //! Import the trait and use it:
 //! ```
 //! use chunk_iter::ChunkIter;
-//! 
+//!
 //! let iter = vec![0,1,2,3,4,5, 6].into_iter();
 //! let mut chunks = iter.chunks::<3>();
 //! assert_eq!(chunks.next(), Some([0,1,2]));
@@ -15,8 +14,8 @@ pub trait ChunkIter<T, I: Iterator<Item = T>> {
     /// Make chunks:
     /// ```
     /// use chunk_iter::ChunkIter;
-    /// 
-    /// let iter = vec![0,1,2,3,4,5, 6].into_iter();
+    ///
+    /// let iter = vec![0, 1, 2, 3, 4, 5, 6].into_iter();
     /// let mut chunks = iter.chunks::<3>();
     /// assert_eq!(chunks.next(), Some([0,1,2]));
     /// assert_eq!(chunks.next(), Some([3,4,5]));
@@ -65,3 +64,32 @@ impl<T, I: Iterator<Item = T>, const N: usize> Drop for Chunks<T, I, N> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::ChunkIter;
+    use testdrop::TestDrop;
+
+    #[test]
+    fn basic_test() {
+        let iter = vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter();
+        let mut chunks = iter.chunks::<3>();
+        assert_eq!(chunks.next(), Some([0, 1, 2]));
+        assert_eq!(chunks.next(), Some([3, 4, 5]));
+        assert_eq!(chunks.next(), None);
+    }
+
+    #[test]
+    fn drop_test() {
+        let test_drop = TestDrop::new();
+        let chunks = (0..10)
+            .map(|_| test_drop.new_item().1)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .chunks::<3>();
+
+        drop(chunks);
+
+        assert_eq!(10, test_drop.num_tracked_items());
+        assert_eq!(10, test_drop.num_dropped_items());
+    }
+}
