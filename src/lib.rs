@@ -8,7 +8,8 @@
 //! assert_eq!(chunks.next(), Some([3,4,5]));
 //! assert_eq!(chunks.next(), None);
 //! ```
-use std::mem::MaybeUninit;
+#![no_std]
+use core::mem::MaybeUninit;
 /// ChunkIter trait: `use` this to use the `chunks` impl.
 pub trait ChunkIter<T, I: Iterator<Item = T>> {
     /// Make chunks:
@@ -52,7 +53,7 @@ impl<T, I: Iterator<Item = T>, const N: usize> Iterator for Chunks<T, I, N> {
             self.needs_dropping += 1;
         }
         self.needs_dropping = 0;
-        unsafe { Some(std::mem::transmute_copy(&self.buffer)) }
+        unsafe { Some(core::mem::transmute_copy(&self.buffer)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -71,12 +72,15 @@ impl<T, I: Iterator<Item = T>, const N: usize> Drop for Chunks<T, I, N> {
 
 #[cfg(test)]
 mod tests {
+    
     use crate::ChunkIter;
     use testdrop::TestDrop;
+    extern crate alloc;
+
 
     #[test]
     fn basic_test() {
-        let iter = vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter();
+        let iter = alloc::vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter();
         let mut chunks = iter.chunks::<3>();
         assert_eq!(chunks.next(), Some([0, 1, 2]));
         assert_eq!(chunks.next(), Some([3, 4, 5]));
@@ -88,7 +92,7 @@ mod tests {
         let test_drop = TestDrop::new();
         let chunks = (0..10)
             .map(|_| test_drop.new_item().1)
-            .collect::<Vec<_>>()
+            .collect::<alloc::vec::Vec<_>>()
             .into_iter()
             .chunks::<3>();
 
@@ -100,7 +104,7 @@ mod tests {
 
     #[test]
     fn size_hint_test() {
-        let iter = vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter().chunks::<3>();
+        let iter = alloc::vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter().chunks::<3>();
 
         assert_eq!(iter.size_hint(), (2, Some(2)))
     }
