@@ -44,15 +44,30 @@ pub struct Chunks<T, I: Iterator<Item = T>, const N: usize> {
     needs_dropping: usize,
 }
 
+impl<T, I: Iterator<Item = T>, const N: usize> Chunks<T, I, N> {
+    /// Gets the number of currently stored things in the backing array.
+    /// This is usally empty, and only will have values after the backing iterator runs out.
+    pub fn currently_stored(&self) -> &[T] {
+        // SAFETY:
+        // needs_dropping is the number of elements that are stored in the buffer
+        unsafe { &*(&self.buffer[..self.needs_dropping] as *const [_] as *const [T]) }
+    }
+}
+
 impl<T, I: Iterator<Item = T>, const N: usize> Iterator for Chunks<T, I, N> {
     type Item = [T; N];
 
     fn next(&mut self) -> Option<Self::Item> {
-        for x in &mut self.buffer {
+        // SAFETY:
+        // self.needs_dropping < N at all times [1]
+        // therefore this can never be out of bounds
+        for x in unsafe { self.buffer.get_unchecked_mut(self.needs_dropping..) } {
             *x = MaybeUninit::new(self.iterator.next()?);
+            // [1] except for here right before it sets it to zero
             self.needs_dropping += 1;
         }
         self.needs_dropping = 0;
+        // SAFETY: MaybeUninit<T> has the same size, alignment, and ABI as T
         unsafe { Some(core::mem::transmute_copy(&self.buffer)) }
     }
 
@@ -65,18 +80,18 @@ impl<T, I: Iterator<Item = T>, const N: usize> Iterator for Chunks<T, I, N> {
 impl<T, I: Iterator<Item = T>, const N: usize> Drop for Chunks<T, I, N> {
     fn drop(&mut self) {
         for x in 0..self.needs_dropping {
-            let _ = unsafe { self.buffer[x].as_ptr().read() };
+            // SAFETY: needs_dropping only includes values that are initialized
+            unsafe { self.buffer[x].as_ptr().read() };
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    
+
     use crate::ChunkIter;
     use testdrop::TestDrop;
     extern crate alloc;
-
 
     #[test]
     fn basic_test() {
@@ -104,7 +119,9 @@ mod tests {
 
     #[test]
     fn size_hint_test() {
-        let iter = alloc::vec![0, 1, 2, 3, 4, 5, 6, 7].into_iter().chunks::<3>();
+        let iter = alloc::vec![0, 1, 2, 3, 4, 5, 6, 7]
+            .into_iter()
+            .chunks::<3>();
 
         assert_eq!(iter.size_hint(), (2, Some(2)))
     }
